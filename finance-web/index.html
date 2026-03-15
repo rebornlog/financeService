@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基金分析平台 - 专业版</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #fff;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            background: rgba(255,255,255,0.95);
+            color: #333;
+        }
+        .card-dark {
+            background: rgba(30,30,50,0.9);
+            color: #fff;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 10px;
+            padding: 10px 30px;
+        }
+        .nav-tabs .nav-link {
+            color: #666;
+            font-weight: 500;
+            border: none;
+        }
+        .nav-tabs .nav-link.active {
+            color: #667eea;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid #667eea;
+        }
+        .indicator-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        .signal-buy { color: #28a745; }
+        .signal-sell { color: #dc3545; }
+        .signal-hold { color: #ffc107; }
+        .gain-positive { color: #28a745; }
+        .gain-negative { color: #dc3545; }
+        .ws-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .ws-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        .ws-connected { background: #28a745; }
+        .ws-disconnected { background: #dc3545; }
+    </style>
+</head>
+<body>
+    <!-- WebSocket状态 -->
+    <div class="ws-status">
+        <span id="wsStatus" class="badge bg-secondary">
+            <span class="ws-indicator ws-disconnected"></span>
+            未连接
+        </span>
+    </div>
+
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-12">
+                <div class="card p-4 mb-4">
+                    <h2 class="text-center mb-4">
+                        <i class="bi bi-graph-up-arrow"></i> 基金分析平台 <span class="badge bg-primary">Pro</span>
+                    </h2>
+                    
+                    <!-- 标签页导航 -->
+                    <ul class="nav nav-tabs mb-3" id="myTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="analyze-tab" data-bs-toggle="tab" data-bs-target="#analyze" type="button">基金分析</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="portfolio-tab" data-bs-toggle="tab" data-bs-target="#portfolio" type="button">组合管理</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="backtest-tab" data-bs-toggle="tab" data-bs-target="#backtest" type="button">收益回测</button>
+                        </li>
+                    </ul>
+                    
+                    <!-- 标签页内容 -->
+                    <div class="tab-content" id="myTabContent">
+                        <!-- 基金分析 -->
+                        <div class="tab-pane fade show active" id="analyze">
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-8">
+                                    <input type="text" id="fundCode" class="form-control" placeholder="输入基金代码" value="161039">
+                                </div>
+                                <div class="col-md-4">
+                                    <button class="btn btn-primary w-100" onclick="analyzeFund()">
+                                        <i class="bi bi-search"></i> 分析
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <span class="text-muted">快速: </span>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="setFund('161039')">易方达消费</button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="setFund('161725')">招商白酒</button>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="setFund('005827')">易方达蓝筹</button>
+                            </div>
+                            
+                            <div id="analyzeResult" class="mt-4"></div>
+                        </div>
+                        
+                        <!-- 组合管理 -->
+                        <div class="tab-pane fade" id="portfolio">
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-4">
+                                    <input type="text" id="portfolioName" class="form-control" placeholder="组合名称" value="我的组合">
+                                </div>
+                                <div class="col-md-3">
+                                    <button class="btn btn-primary" onclick="createPortfolio()">
+                                        <i class="bi bi-plus"></i> 创建组合
+                                    </button>
+                                </div>
+                                <div class="col-md-3">
+                                    <button class="btn btn-outline-secondary" onclick="loadPortfolios()">
+                                        <i class="bi bi-arrow-clockwise"></i> 刷新
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div id="portfolioList" class="mt-4"></div>
+                            
+                            <!-- 添加基金表单 -->
+                            <div class="card mt-3 p-3">
+                                <h6>添加基金到组合</h6>
+                                <div class="row g-2">
+                                    <div class="col-md-3">
+                                        <input type="text" id="addFundCode" class="form-control" placeholder="基金代码">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="number" id="addShares" class="form-control" placeholder="持有份额">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="number" id="addCost" class="form-control" placeholder="投入金额">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <button class="btn btn-primary w-100" onclick="addToPortfolio()">
+                                            <i class="bi bi-plus"></i> 添加
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 收益回测 -->
+                        <div class="tab-pane fade" id="backtest">
+                            <div class="row g-3 mt-2">
+                                <div class="col-md-3">
+                                    <input type="text" id="btFundCode" class="form-control" placeholder="基金代码" value="161039">
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="date" id="btStartDate" class="form-control" value="2025-01-01">
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="date" id="btEndDate" class="form-control" value="2025-12-31">
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="number" id="btMoney" class="form-control" placeholder="初始资金" value="100000">
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <button class="btn btn-primary" onclick="runBacktest()">
+                                    <i class="bi bi-play"></i> 开始回测
+                                </button>
+                            </div>
+                            
+                            <div id="backtestResult" class="mt-4"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE = 'http://localhost:9000';
+        let currentPortfolioId = null;
+        let ws = null;
+        
+        // WebSocket连接
+        function connectWS() {
+            ws = new WebSocket(`ws://localhost:8003/ws?client_id=web_${Date.now()}`);
+            
+            ws.onopen = function() {
+                document.getElementById('wsStatus').innerHTML = 
+                    '<span class="ws-indicator ws-connected"></span>已连接';
+                document.getElementById('wsStatus').className = 'badge bg-success';
+                
+                // 订阅基金
+                ws.send(JSON.stringify({action: 'subscribe', funds: ['161039', '161725']}));
+            };
+            
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                console.log('WS消息:', data);
+                
+                if (data.type === 'price_update') {
+                    // 更新价格显示
+                    showPriceUpdate(data);
+                }
+            };
+            
+            ws.onclose = function() {
+                document.getElementById('wsStatus').innerHTML = 
+                    '<span class="ws-indicator ws-disconnected"></span>未连接';
+                document.getElementById('wsStatus').className = 'badge bg-secondary';
+                
+                // 尝试重连
+                setTimeout(connectWS, 5000);
+            };
+            
+            ws.onerror = function(err) {
+                console.error('WS错误:', err);
+            };
+        }
+        
+        function showPriceUpdate(data) {
+            // 可以在这里添加实时价格动画
+            console.log(`${data.fund_code} 更新: ${data.price}`);
+        }
+        
+        // 初始化WebSocket
+        connectWS();
+        
+        function setFund(code) {
+            document.getElementById('fundCode').value = code;
+            analyzeFund();
+        }
+        
+        async function analyzeFund() {
+            const fundCode = document.getElementById('fundCode').value.trim();
+            if (!fundCode) return alert('请输入基金代码');
+            
+            try {
+                const res = await fetch(`${API_BASE}/fund/analyze/${fundCode}`);
+                const data = await res.json();
+                
+                let html = `
+                    <div class="card p-3 mb-3">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5>${data.fund_name}</h5>
+                                <p class="mb-1">净值: <strong>${data.net_value?.toFixed(4)}</strong></p>
+                                <p class="mb-0">日涨幅: <span class="${data.growth_rate >= 0 ? 'gain-positive' : 'gain-negative'}">
+                                    ${data.growth_rate >= 0 ? '+' : ''}${data.growth_rate?.toFixed(2)}%
+                                </span></p>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <h4 class="${data.overall_signal === 'BUY' ? 'signal-buy' : data.overall_signal === 'SELL' ? 'signal-sell' : 'signal-hold'}">
+                                    ${data.overall_signal}
+                                </h4>
+                                <p class="text-muted">${data.recommendation}</p>
+                                <p>风险: ${data.risk_level}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                `;
+                
+                data.indicators.forEach(ind => {
+                    let signalClass = ind.signal === 'BUY' ? 'signal-buy' : ind.signal === 'SELL' ? 'signal-sell' : 'signal-hold';
+                    html += `
+                        <div class="col-md-4">
+                            <div class="indicator-card">
+                                <h6>${ind.name}</h6>
+                                <p class="mb-1">数值: <strong>${ind.value?.toFixed(2)}</strong></p>
+                                <p class="mb-0 ${signalClass}">${ind.signal} (${(ind.confidence*100).toFixed(0)}%)</p>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                document.getElementById('analyzeResult').innerHTML = html;
+                
+            } catch(e) {
+                alert('加载失败: ' + e.message);
+            }
+        }
+        
+        // 组合管理
+        async function createPortfolio() {
+            const name = document.getElementById('portfolioName').value;
+            try {
+                const res = await fetch(`${API_BASE}/portfolio/user1?name=${encodeURIComponent(name)}`, {method: 'POST'});
+                const data = await res.json();
+                alert('创建成功!');
+                loadPortfolios();
+            } catch(e) {
+                alert('创建失败: ' + e.message);
+            }
+        }
+        
+        async function loadPortfolios() {
+            try {
+                const res = await fetch(`${API_BASE}/portfolio/user1`);
+                const data = await res.json();
+                
+                if (data.portfolios.length === 0) {
+                    document.getElementById('portfolioList').innerHTML = '<p class="text-muted">暂无组合</p>';
+                    return;
+                }
+                
+                let html = '<div class="row">';
+                data.portfolios.forEach(p => {
+                    const gainClass = p.total_gain >= 0 ? 'gain-positive' : 'gain-negative';
+                    html += `
+                        <div class="col-md-6">
+                            <div class="card p-3 mb-2">
+                                <h6>${p.name}</h6>
+                                <p class="mb-1">总价值: <strong>${p.total_value?.toFixed(2)}</strong></p>
+                                <p class="mb-1">总收益: <span class="${gainClass}">${p.total_gain?.toFixed(2)} (${p.total_gain_pct?.toFixed(2)}%)</span></p>
+                                <p class="mb-0 text-muted">持仓: ${p.holdings?.length || 0}只</p>
+                            </div>
+                        </div>
+                    `;
+                    if (p.holdings?.length > 0) currentPortfolioId = p.id;
+                });
+                html += '</div>';
+                document.getElementById('portfolioList').innerHTML = html;
+                
+            } catch(e) {
+                console.error(e);
+            }
+        }
+        
+        async function addToPortfolio() {
+            const fundCode = document.getElementById('addFundCode').value;
+            const shares = parseFloat(document.getElementById('addShares').value);
+            const cost = parseFloat(document.getElementById('addCost').value);
+            
+            if (!currentPortfolioId) return alert('请先创建组合');
+            if (!fundCode || !shares || !cost) return alert('请填写完整');
+            
+            try {
+                const res = await fetch(
+                    `${API_BASE}/portfolio/user1/${currentPortfolioId}/add?fund_code=${fundCode}&shares=${shares}&cost=${cost}`,
+                    {method: 'POST'}
+                );
+                const data = await res.json();
+                alert('添加成功!');
+                loadPortfolios();
+            } catch(e) {
+                alert('添加失败: ' + e.message);
+            }
+        }
+        
+        // 回测
+        async function runBacktest() {
+            const fundCode = document.getElementById('btFundCode').value;
+            const startDate = document.getElementById('btStartDate').value;
+            const endDate = document.getElementById('btEndDate').value;
+            const money = document.getElementById('btMoney').value;
+            
+            try {
+                const res = await fetch(
+                    `${API_BASE}/backtest?fund_code=${fundCode}&start_date=${startDate}&end_date=${endDate}&initial_money=${money}`
+                );
+                const data = await res.json();
+                
+                const gainClass = data.results.return_pct >= 0 ? 'gain-positive' : 'gain-negative';
+                
+                document.getElementById('backtestResult').innerHTML = `
+                    <div class="card p-3">
+                        <h5>回测结果: ${data.fund_code}</h5>
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <p>初始资金: <strong>¥${data.results.initial_money?.toLocaleString()}</strong></p>
+                                <p>最终价值: <strong>¥${data.results.final_value?.toLocaleString()}</strong></p>
+                                <p class="${gainClass}">总收益: <strong>¥${data.results.total_return?.toLocaleString()} (${data.results.return_pct}%)</strong></p>
+                            </div>
+                            <div class="col-md-6">
+                                <p>年化收益: <strong>${data.results.annual_return}%</strong></p>
+                                <p>最大回撤: <strong>${data.results.max_drawdown}%</strong></p>
+                                <p>胜率: <strong>${data.win_rate}%</strong></p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+            } catch(e) {
+                alert('回测失败: ' + e.message);
+            }
+        }
+        
+        // 页面加载时
+        window.onload = function() {
+            analyzeFund();
+            loadPortfolios();
+        };
+    </script>
+</body>
+</html>
