@@ -95,7 +95,7 @@ class QuantitativeAnalyzer:
                 raise ValueError(f"Missing required column: {col}")
         
         # 处理缺失值
-        df = df.fillna(method='ffill')
+        df = df.ffill()
         
         # 计算对数收益率
         df['log_return'] = np.log(df['close'] / df['close'].shift(1))
@@ -110,86 +110,213 @@ class QuantitativeAnalyzer:
                                       indicators: List[str]) -> List[TechnicalIndicator]:
         """计算技术指标"""
         results = []
-        close = df['close'].values
         
         for indicator in indicators:
             try:
                 if indicator == 'RSI':
-                    # 简化的RSI计算
-                    delta = df['close'].diff()
-                    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-                    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-                    rs = gain / loss
-                    rsi = 100 - (100 / (1 + rs))
-                    latest_rsi = rsi.iloc[-1]
-                    
-                    if latest_rsi < 30:
-                        signal = SignalType.BUY
-                        confidence = (30 - latest_rsi) / 30
-                    elif latest_rsi > 70:
-                        signal = SignalType.SELL
-                        confidence = (latest_rsi - 70) / 30
-                    else:
-                        signal = SignalType.HOLD
-                        confidence = 0.5
+                    result = self._calc_rsi(df)
+                    if result:
+                        results.append(result)
                         
-                    results.append(TechnicalIndicator(
-                        name='RSI(14)', 
-                        value=latest_rsi,
-                        signal=signal,
-                        confidence=min(confidence, 1.0)
-                    ))
-                    
                 elif indicator == 'MA':
-                    # 移动平均线
-                    ma5 = df['close'].rolling(window=5).mean()
-                    ma20 = df['close'].rolling(window=20).mean()
-                    
-                    if ma5.iloc[-1] > ma20.iloc[-1] and ma5.iloc[-2] <= ma20.iloc[-2]:
-                        signal = SignalType.BUY
-                        confidence = 0.6
-                    elif ma5.iloc[-1] < ma20.iloc[-1] and ma5.iloc[-2] >= ma20.iloc[-2]:
-                        signal = SignalType.SELL
-                        confidence = 0.6
-                    else:
-                        signal = SignalType.HOLD
-                        confidence = 0.5
+                    result = self._calc_ma(df)
+                    if result:
+                        results.append(result)
                         
-                    results.append(TechnicalIndicator(
-                        name='MA Crossover(5,20)',
-                        value=ma5.iloc[-1] - ma20.iloc[-1],
-                        signal=signal,
-                        confidence=confidence
-                    ))
-                    
                 elif indicator == 'VOL':
-                    # 成交量分析
-                    vol_ma = df['volume'].rolling(window=20).mean()
-                    current_vol = df['volume'].iloc[-1]
-                    vol_ratio = current_vol / vol_ma.iloc[-1]
-                    
-                    if vol_ratio > 1.5:
-                        signal = SignalType.BUY
-                        confidence = min(vol_ratio / 3, 1.0)
-                    elif vol_ratio < 0.5:
-                        signal = SignalType.SELL
-                        confidence = min((1 - vol_ratio) / 2, 1.0)
-                    else:
-                        signal = SignalType.HOLD
-                        confidence = 0.5
+                    result = self._calc_vol(df)
+                    if result:
+                        results.append(result)
+                
+                elif indicator == 'MACD':
+                    result = self._calc_macd(df)
+                    if result:
+                        results.append(result)
+                
+                elif indicator == 'KDJ':
+                    result = self._calc_kdj(df)
+                    if result:
+                        results.append(result)
+                
+                elif indicator == 'BOLL':
+                    result = self._calc_boll(df)
+                    if result:
+                        results.append(result)
                         
-                    results.append(TechnicalIndicator(
-                        name='Volume Analysis',
-                        value=vol_ratio,
-                        signal=signal,
-                        confidence=confidence
-                    ))
-                    
             except Exception as e:
                 print(f"Error calculating {indicator}: {e}")
                 continue
                 
         return results
+    
+    def _calc_rsi(self, df: pd.DataFrame) -> Optional[TechnicalIndicator]:
+        """计算RSI指标"""
+        delta = df['close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        latest_rsi = rsi.iloc[-1]
+        
+        if latest_rsi < 30:
+            signal = SignalType.BUY
+            confidence = (30 - latest_rsi) / 30
+        elif latest_rsi > 70:
+            signal = SignalType.SELL
+            confidence = (latest_rsi - 70) / 30
+        else:
+            signal = SignalType.HOLD
+            confidence = 0.5
+            
+        return TechnicalIndicator(
+            name='RSI(14)', 
+            value=latest_rsi,
+            signal=signal,
+            confidence=min(confidence, 1.0)
+        )
+    
+    def _calc_ma(self, df: pd.DataFrame) -> Optional[TechnicalIndicator]:
+        """计算移动平均线"""
+        ma5 = df['close'].rolling(window=5).mean()
+        ma20 = df['close'].rolling(window=20).mean()
+        
+        if ma5.iloc[-1] > ma20.iloc[-1] and ma5.iloc[-2] <= ma20.iloc[-2]:
+            signal = SignalType.BUY
+            confidence = 0.7
+        elif ma5.iloc[-1] < ma20.iloc[-1] and ma5.iloc[-2] >= ma20.iloc[-2]:
+            signal = SignalType.SELL
+            confidence = 0.7
+        else:
+            signal = SignalType.HOLD
+            confidence = 0.5
+            
+        return TechnicalIndicator(
+            name='MA(5,20)',
+            value=ma5.iloc[-1] - ma20.iloc[-1],
+            signal=signal,
+            confidence=confidence
+        )
+    
+    def _calc_vol(self, df: pd.DataFrame) -> Optional[TechnicalIndicator]:
+        """成交量分析"""
+        vol_ma = df['volume'].rolling(window=20).mean()
+        current_vol = df['volume'].iloc[-1]
+        vol_ratio = current_vol / vol_ma.iloc[-1]
+        
+        if vol_ratio > 1.5:
+            signal = SignalType.BUY
+            confidence = min(vol_ratio / 3, 1.0)
+        elif vol_ratio < 0.5:
+            signal = SignalType.SELL
+            confidence = min((1 - vol_ratio) / 2, 1.0)
+        else:
+            signal = SignalType.HOLD
+            confidence = 0.5
+            
+        return TechnicalIndicator(
+            name='VOL',
+            value=vol_ratio,
+            signal=signal,
+            confidence=confidence
+        )
+    
+    def _calc_macd(self, df: pd.DataFrame) -> Optional[TechnicalIndicator]:
+        """计算MACD指标"""
+        ema12 = df['close'].ewm(span=12, adjust=False).mean()
+        ema26 = df['close'].ewm(span=26, adjust=False).mean()
+        macd_line = ema12 - ema26
+        signal_line = macd_line.ewm(span=9, adjust=False).mean()
+        macd_hist = macd_line - signal_line
+        
+        # 最新值
+        macd_val = macd_line.iloc[-1]
+        signal_val = signal_line.iloc[-1]
+        hist_val = macd_hist.iloc[-1]
+        
+        # 前一个值
+        macd_prev = macd_line.iloc[-2]
+        signal_prev = signal_line.iloc[-2]
+        
+        # 金叉/死叉判断
+        if macd_val > signal_val and macd_prev <= signal_prev:
+            signal = SignalType.BUY
+            confidence = 0.75
+        elif macd_val < signal_val and macd_prev >= signal_prev:
+            signal = SignalType.SELL
+            confidence = 0.75
+        elif hist_val > 0:
+            signal = SignalType.BUY
+            confidence = 0.5
+        else:
+            signal = SignalType.SELL
+            confidence = 0.5
+            
+        return TechnicalIndicator(
+            name='MACD(12,26,9)',
+            value=hist_val,
+            signal=signal,
+            confidence=confidence
+        )
+    
+    def _calc_kdj(self, df: pd.DataFrame) -> Optional[TechnicalIndicator]:
+        """计算KDJ指标"""
+        low_n = df['low'].rolling(window=9).min()
+        high_n = df['high'].rolling(window=9).max()
+        
+        k = 100 * (df['close'] - low_n) / (high_n - low_n)
+        k = k.fillna(50)
+        d = k.rolling(window=3).mean()
+        j = 3 * k - 2 * d
+        
+        k_val = k.iloc[-1]
+        d_val = d.iloc[-1]
+        j_val = j.iloc[-1]
+        
+        # 超买超卖判断
+        if k_val < 20 or d_val < 20:
+            signal = SignalType.BUY
+            confidence = (20 - min(k_val, d_val)) / 20
+        elif k_val > 80 or d_val > 80:
+            signal = SignalType.SELL
+            confidence = (max(k_val, d_val) - 80) / 20
+        else:
+            signal = SignalType.HOLD
+            confidence = 0.5
+            
+        return TechnicalIndicator(
+            name='KDJ(9,3,3)',
+            value=j_val,
+            signal=signal,
+            confidence=min(confidence, 1.0)
+        )
+    
+    def _calc_boll(self, df: pd.DataFrame) -> Optional[TechnicalIndicator]:
+        """计算布林带指标"""
+        ma20 = df['close'].rolling(window=20).mean()
+        std20 = df['close'].rolling(window=20).std()
+        
+        upper = ma20 + 2 * std20
+        lower = ma20 - 2 * std20
+        
+        current_price = df['close'].iloc[-1]
+        bb_position = (current_price - lower.iloc[-1]) / (upper.iloc[-1] - lower.iloc[-1])
+        
+        if bb_position < 0.2:
+            signal = SignalType.BUY
+            confidence = (0.2 - bb_position) / 0.2
+        elif bb_position > 0.8:
+            signal = SignalType.SELL
+            confidence = (bb_position - 0.8) / 0.2
+        else:
+            signal = SignalType.HOLD
+            confidence = 0.5
+            
+        return TechnicalIndicator(
+            name='BOLL(20,2)',
+            value=bb_position,
+            signal=signal,
+            confidence=min(confidence, 1.0)
+        )
     
     def _generate_combined_signal(self, 
                                 technical_indicators: List[TechnicalIndicator]) -> Tuple[SignalType, float]:
