@@ -142,9 +142,7 @@ class FundDataFetcher:
             'daily_gain_pct': np.round(daily_returns * 100, 2),
         })
         
-        # 修正buy_status
         df['buy_status'] = np.where(np.random.random(days) > 0.3, '开放', '限额')
-        df['sell_status'] = '开放'
         df['sell_status'] = '开放'
         
         return df
@@ -171,15 +169,74 @@ class FundDataFetcher:
         
         return results if results else mock_funds[:3]
     
-    def get_fund_manager(self, fund_code: str) -> List[Dict]:
-        """获取基金经理"""
-        return [
-            {'name': '数据获取中', 'tenure': ''}
+    def get_fund_manager(self, fund_code: str) -> Dict:
+        """获取基金经理信息"""
+        managers = [
+            {'name': '张坤', 'tenure': '4年', 'rating': 5, 'assets': 622.5},
+            {'name': '刘彦春', 'tenure': '6年', 'rating': 4.5, 'assets': 456.3},
+            {'name': '侯昊', 'tenure': '3年', 'rating': 4.8, 'assets': 389.2}
         ]
+        
+        return {
+            'fund_code': fund_code,
+            'managers': managers,
+            'current_manager': managers[0]
+        }
     
     def get_fund_holdings(self, fund_code: str) -> List[Dict]:
         """获取基金持仓"""
-        return []
+        holdings = []
+        stocks = ['贵州茅台', '宁德时代', '招商银行', '中国平安', '五粮液',
+                  '隆基绿能', '比亚迪', '泸州老窖', '山西汾酒', '美的集团']
+        
+        for i, stock in enumerate(stocks[:10]):
+            holdings.append({
+                'rank': i + 1,
+                'stock_code': f'{600000 + i * 100:06d}.SH',
+                'stock_name': stock,
+                'shares': int(np.random.randint(1000000, 50000000)),
+                'market_value': float(np.random.uniform(1e8, 5e9)),
+                'proportion': float(np.random.uniform(3, 15))
+            })
+        
+        return holdings
+    
+    def get_fund_compare(self, fund_codes: List[str]) -> Dict:
+        """基金对比分析"""
+        compare_result = {'funds': [], 'comparison': {}}
+        
+        for code in fund_codes:
+            info = self.get_fund_info(code)
+            compare_result['funds'].append({
+                'code': code,
+                'name': info.get('fund_name', '未知'),
+                'nav': info.get('net_value', 0),
+                'growth': info.get('growth_rate', 0),
+                'type': info.get('fund_type', '混合型')
+            })
+        
+        if compare_result['funds']:
+            growths = [f['growth'] for f in compare_result['funds']]
+            compare_result['comparison'] = {
+                'best_growth': max(growths),
+                'avg_growth': sum(growths) / len(growths),
+                'best_fund': compare_result['funds'][growths.index(max(growths))]['name']
+            }
+        
+        return compare_result
+    
+    def get_fund_dividend(self, fund_code: str) -> List[Dict]:
+        """获取基金分红历史"""
+        dividends = []
+        for year in range(2020, 2025):
+            dividends.append({
+                'year': year,
+                'date': f'{year}-12-15',
+                'cash_dividend': round(float(np.random.uniform(0.1, 0.5)), 4),
+                'share_dividend': round(float(np.random.uniform(0, 0.1)), 4),
+                'total': round(float(np.random.uniform(0.1, 0.6)), 4)
+            })
+        return dividends
 
 
 # 便捷函数
