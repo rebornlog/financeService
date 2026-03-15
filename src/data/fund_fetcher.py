@@ -207,11 +207,17 @@ class FundDataFetcher:
         
         for code in fund_codes:
             info = self.get_fund_info(code)
+            # 生成模拟的各周期涨幅
+            import random
+            random.seed(int(code) if code.isdigit() else hash(code))
             compare_result['funds'].append({
                 'code': code,
                 'name': info.get('fund_name', '未知'),
                 'nav': info.get('net_value', 0),
                 'growth': info.get('growth_rate', 0),
+                'growth1m': round(random.uniform(-5, 8), 2),
+                'growth3m': round(random.uniform(-15, 20), 2),
+                'growth1y': round(random.uniform(-20, 60), 2),
                 'type': info.get('fund_type', '混合型')
             })
         
