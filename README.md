@@ -1,54 +1,51 @@
-# FinanceService - 金融服务与未来科技展望
+# Finance Service - 基金分析平台
 
-🚀 **下一代智能金融服务平台** | 融合AI、区块链、大数据的前沿金融解决方案
+基于 FastAPI + Vue3 的专业基金分析服务
 
-## 🌟 项目愿景
+## 功能特性
 
-打造世界领先的智能金融服务平台，通过前沿技术为个人和企业提供：
-- 🤖 **AI驱动的投资分析**
-- 🔗 **区块链安全交易**
-- 📊 **大数据风险管控**
-- 🌐 **全球化金融服务**
+- 📊 **基金信息查询** - 实时净值、历史走势、基金档案
+- 📈 **技术指标分析** - RSI、MACD、KDJ、BOLL、均线等
+- 🎯 **买卖信号推荐** - 多指标综合分析给出建议
+- 📰 **舆情分析** - 基金相关新闻情感分析
+- 💼 **组合管理** - 创建投资组合、添加基金、收益跟踪
+- 🔄 **收益回测** - 买入持有策略历史回测
+- 🔌 **WebSocket实时推送** - 实时价格更新
 
-## 🎯 核心功能
-
-### 💡 智能投顾系统
-- **量化分析引擎**: 多因子模型、机器学习预测
-- **风险评估模型**: VaR计算、压力测试、组合优化
-- **自动化交易**: 算法交易、高频交易、套利策略
-- **个性化推荐**: 基于用户画像的智能投资建议
-
-### 🔒 区块链金融
-- **数字资产管理**: 加密货币钱包、DeFi协议集成
-- **智能合约**: 自动化金融协议、去中心化应用
-- **跨链交易**: 多链资产互通、流动性聚合
-- **安全审计**: 智能合约安全、交易风险监控
-
-### 📈 数据分析平台
-- **实时市场数据**: 股票、期货、外汇、数字货币
-- **技术指标分析**: TA-Lib集成、自定义指标
-- **舆情监控**: 新闻分析、社交媒体情绪
-- **研究报告**: 自动生成投资分析报告
-
-## 🚀 快速开始
+## 快速开始
 
 ```bash
-# 克隆项目
-git clone https://github.com/rebornlog/financeService.git
-cd financeService
-
 # 安装依赖
-pip install -r requirements.txt
+cd financeService-main
+pip install fastapi uvicorn pandas numpy
 
-# 配置环境
-cp .env.example .env
+# 启动服务
+python -m uvicorn src.main:app --host 0.0.0.0 --port 9000
 ```
 
-## 📞 联系方式
+## API 接口
 
-- **项目负责人**: 水镜先生
-- **GitHub**: [@rebornlog](https://github.com/rebornlog)
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/` | GET | 首页 |
+| `/fund/info/{code}` | GET | 基金基本信息 |
+| `/fund/analyze/{code}` | GET | 综合分析报告 |
+| `/fund/holdings/{code}` | GET | 基金持仓明细 |
+| `/sentiment/fund/{code}` | GET | 舆情分析 |
+| `/portfolio/{user_id}` | GET/POST | 组合管理 |
+| `/backtest` | GET | 收益回测 |
+| `/ws` | WebSocket | 实时推送 |
 
----
+## 前端界面
 
-**🚀 FinanceService - 让智能金融触手可及**
+访问 `finance-web/index.html` 即可使用可视化界面
+
+## 技术栈
+
+- **后端**: FastAPI + Python
+- **前端**: HTML5 + Bootstrap5 + Vue3
+- **数据**: 东方财富API (模拟数据fallback)
+
+## License
+
+MIT
