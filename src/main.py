@@ -299,8 +299,9 @@ def get_fund_history(fund_code: str, days: int = Query(90, ge=1, le=365)):
     return {
         'fund_code': fund_code,
         'days': days,
-        'count': len(df),
-        'data': df.to_dict(orient='records')
+        'dates': df['date'].dt.strftime('%Y-%m-%d').tolist() if 'date' in df.columns else [],
+        'values': df['net_value'].tolist() if 'net_value' in df.columns else [],
+        'acc_values': df['acc_net_value'].tolist() if 'acc_net_value' in df.columns else []
     }
 
 
