@@ -18,17 +18,19 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # 导入数据采集
 from src.data.fund_fetcher import FundDataFetcher
+from src.data.sentiment import SentimentAnalyzer
 from src.quant.analyzer import QuantitativeAnalyzer, SignalType
 
 app = FastAPI(
     title="Finance Service API",
     description="基金分析服务 - 实时净值、技术指标、舆情分析、买卖建议",
-    version="1.1.0"
+    version="1.2.0"
 )
 
 # 初始化组件
 fund_fetcher = FundDataFetcher()
 analyzer = QuantitativeAnalyzer()
+sentiment_analyzer = SentimentAnalyzer()
 
 # 请求模型
 class AnalysisRequest(BaseModel):
@@ -152,6 +154,45 @@ def get_fund_holdings(fund_code: str):
     return {
         'fund_code': fund_code,
         'holdings': holdings
+    }
+
+
+# ==================== 舆情分析接口 ====================
+
+@app.get("/sentiment/fund/{fund_code}")
+def get_fund_sentiment(fund_code: str):
+    """
+    获取基金舆情分析
+    
+    Returns:
+        舆情摘要：情感倾向、热门关键词、正负面评论统计
+    """
+    return sentiment_analyzer.get_fund_sentiment_summary(fund_code)
+
+
+@app.get("/sentiment/market")
+def get_market_sentiment():
+    """
+    获取市场整体情绪
+    
+    Returns:
+        市场情绪指标、恐贪指数
+    """
+    return sentiment_analyzer.get_market_sentiment()
+
+
+@app.post("/sentiment/analyze")
+def analyze_text(text: str = Query(..., min_length=1)):
+    """
+    分析单条文本情感
+    
+    Args:
+        text: 要分析的文本
+    """
+    result = sentiment_analyzer.analyze_sentiment(text)
+    return {
+        'text': text,
+        'result': result
     }
 
 
